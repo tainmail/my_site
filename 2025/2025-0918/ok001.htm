@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>勞務報酬單</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    #app{ max-width:980px; margin:auto; padding:16px; }
+
+    /* 選單*/
+    .nav{ display:flex; gap:.5rem; border-bottom:1px solid #dee2e6; padding:.5rem .75rem 0 .75rem; }
+    .nav .btn-tab{ border:none; background:transparent; padding:.5rem .75rem; border-bottom:2px solid transparent; }
+    .nav .btn-tab.active{ border-color:#0d6efd; color:#0d6efd; font-weight:600; }
+
+    /* 內容群組與各步驟 */
+    .step_group{ padding:1rem .75rem 1.25rem; }
+    .step_group .step{ }
+
+    [v-cloak]{ display:none; }
+
+    /* 表單控制項 */
+    .input-plain{ background:#fff; border:1px solid #d0d5dd; border-radius:.375rem; padding:.5rem .75rem; outline:none; width:100%}
+    .input-plain:focus{ border-color:#6c757d; box-shadow:none}
+    .dropzone{ position:relative; border:2px dashed #c9cdd4; border-radius:.5rem; padding:1rem; min-height:130px; display:flex; align-items:center; justify-content:center; gap:.5rem; color:#6c757d; background:#f8fafc; cursor:pointer}
+    .dropzone img{ max-width:100%; max-height:120px; object-fit:contain}
+
+    /* 預覽區域與 A4 版面 */
+    .preview-toolbar{ display:flex; justify-content:flex-end; gap:.5rem; margin-bottom:.5rem; }
+    .preview-scroll{ max-height:70vh; overflow:auto; padding:1rem; background:#f8f9fa; border-radius:.5rem; border:1px solid #dee2e6}
+    .png-preview{ width:100%; height:auto; display:block; background:#fff; }
+
+    /* A4 轉圖來源*/
+    .pdf-page{ position:absolute; left:-10000px; top:0; width:794px; background:#fff; color:#000; padding:20px; border:1px solid #000}
+    .pdf-page h3{ font-weight:800; text-align:center; font-size:22px; margin-bottom:8px}
+
+    /* 表格*/
+    .table_1{ width:100%; border-collapse:collapse; border:2px solid #000; }
+    .table_1 th{ padding:4px; vertical-align:top; font-weight:900; border:1px solid #000; }
+    .table_1 td{ padding:4px; vertical-align:top; border:1px solid #000; }
+
+    /* 圖片框：身分證滿版 cover */
+    .mono{ font-family:ui-monospace,Menlo,Consolas,monospace}
+    .id-box{ height:190px; display:flex; align-items:center; justify-content:center; border:2px dashed #aaa; overflow:hidden; position:relative; }
+
+    /* 浮水印樣式 */
+    .waterMark{ position:absolute; top:50%; left:50%; opacity:0.2; transform:translate(-50%,-50%) rotate(25deg); font-size:34px; font-weight:bold; color:#000; pointer-events:none; white-space:nowrap; }
+    .id-box img{ width:100%; height:100%; object-fit:contain; }
+    .sign-box{ height:80px; display:flex; align-items:center; justify-content:center; border:2px dashed #aaa; overflow:hidden}
+    .sign-box img{ width:100%; height:100%; object-fit:contain; }
+    .qs-box{ font-family:ui-monospace,Menlo,Consolas,monospace; background:#f8fafc; border:1px dashed #ced4da; border-radius:.5rem; padding:.75rem; word-break:break-all}
+
+    /* RWD */
+    @media (max-width:992px){ .pdf-page{ width:100%; } }
+  </style>
+</head>
+<body>
+  <!-- 應用外框 開始 -->
+  <div id="app" v-cloak>
+    <h3 class="mb-3">勞務報酬單</h3>
+
+    <!-- 選單 開始 -->
+    <div class="nav d-flex gap-2 align-items-center">
+      <button class="btn-tab" :class="{active: bShowStep==='step_person'}"
+        @click="bShowStep='step_person'">受款人資料</button>
+      <button class="btn-tab" :class="{active: bShowStep==='step_project'}"
+        @click="bShowStep='step_project'">勞務資料</button>
+      <button class="btn-tab" :class="{active: bShowStep==='step_preview'}"
+        @click="bShowStep='step_preview'">預覽PNG</button>
+      <button class="btn-tab" @click="fnJsonOpen">載入JSON</button>
+      <button class="btn-tab" @click="fnJsonSave">儲存JSON</button>
+    </div>
+    <!-- 選單 結束 -->
+
+    <!-- 內容群組 開始 -->
+    <div class="step_group">
+
+      <!-- 個人資料 開始 -->
+      <section class="step step_person" v-show="bShowStep==='step_person'">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 姓名：</label>
+            <input class="input-plain" v-model.trim="form.recipientName" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 身分證字號（居留證 / 護照）：</label>
+            <input class="input-plain" v-model.trim="form.recipientId" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 聯絡方式 ( Email 或 電話 )：</label>
+            <input class="input-plain" v-model.trim="form.recipientContact" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 戶籍地址：</label>
+            <input class="input-plain" v-model.trim="form.recipientAddress" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 國籍：</label>
+            <select class="input-plain" v-model="form.recipientNationality">
+              <option value="臺灣">臺灣</option>
+              <option>香港</option>
+              <option>澳門</option>
+              <option>中國</option>
+              <option>日本</option>
+              <option>其他</option>
+            </select>
+          </div>
+
+		  <div class="col-md-6">
+            <label class="form-label small text-success">製表日期</label>
+            <input type="date" class="input-plain" v-model="form.formDate" />
+          </div>
+
+          <div class="col-12">
+            <label class="form-label small text-success">付款方式</label>
+            <textarea rows="4" class="input-plain" v-model.trim="form.paymentMethod"
+              placeholder="銀行、分行、戶名、帳號等資訊。"></textarea>
+          </div>
+
+          <!-- 身分證 正反面 -->
+          <div class="col-md-6">
+            <div class="dropzone" @click="pick('idFront')">
+              <template v-if="form.idFront">
+                <img :src="form.idFront" />
+                <div class="position-absolute top-0 end-0 p-2">
+                  <button class="btn btn-sm btn-outline-danger" @click.stop="removeImage('idFront')">移除</button>
+                </div>
+              </template>
+              <template v-else>
+                <i class="bi bi-image fs-2"></i>
+                <div>身分證 正面<br /><small>點此上傳</small></div>
+              </template>
+              <input ref="fileIdFront" type="file" class="d-none" accept="image/*"
+                @change="onImageChange('idFront', $event)" />
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="dropzone" @click="pick('idBack')">
+              <template v-if="form.idBack">
+                <img :src="form.idBack" />
+                <div class="position-absolute top-0 end-0 p-2">
+                  <button class="btn btn-sm btn-outline-danger" @click.stop="removeImage('idBack')">移除</button>
+                </div>
+              </template>
+              <template v-else>
+                <i class="bi bi-image fs-2"></i>
+                <div>身分證 反面<br /><small>點此上傳</small></div>
+              </template>
+              <input ref="fileIdBack" type="file" class="d-none" accept="image/*"
+                @change="onImageChange('idBack', $event)" />
+            </div>
+          </div>
+
+          <!-- 簽名 -->
+          <div class="col-12">
+            <div class="dropzone" @click="openSign('recipientSignature')">
+              <template v-if="form.recipientSignature">
+                <img :src="form.recipientSignature" style="max-height:150px" />
+                <div class="position-absolute top-0 end-0 p-2">
+                  <button class="btn btn-sm btn-outline-danger" @click.stop="removeSignature">刪除簽名</button>
+                </div>
+              </template>
+              <template v-else>
+                <i class="bi bi-brush fs-2"></i>
+                <div>領款人 簽名<br /><small>點此手寫簽名</small></div>
+              </template>
+            </div>
+          </div>
+
+          
+        </div>
+      </section>
+      <!-- 個人資料 結束 -->
+
+      <!-- 勞務資料 -->
+      <section class="step step_project" v-show="bShowStep==='step_project'">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 專案名稱：</label>
+            <input class="input-plain" v-model.trim="project.pn" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 公司名稱：</label>
+            <input class="input-plain" v-model.trim="project.cn" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text成功">- 勞務內容：</label>
+            <textarea rows="3" class="input-plain" v-model.trim="project.sc"></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 公司聯絡方式：</label>
+            <input class="input-plain" v-model.trim="project.cc" placeholder="填入 email 或 電話" />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 應付總額：</label>
+            <input type="number" class="input-plain" v-model.number="project.ta" />
+          </div>
+
+          <!-- 已移入：所得類別 -->
+          <div class="col-md-6">
+            <label class="form-label small text-success">- 所得類別：</label>
+            <select class="input-plain" v-model="form.incomeCategory">
+              <option value="">請選擇申報類別</option>
+              <option>9A 勞務報酬所得</option>
+              <option>9B 鐘點費</option>
+              <option>50 其他</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label small text-success">勞務報酬單網址：</label>
+            <input class="input-plain" v-model.trim="project.url" placeholder="例如：http://www.abc.com.tw" />
+			<p class="small text-secondary mb-1">說明：公司方可以預先填好資料嵌入在網址裡，方便受款人使用。</p>
+            <p class="small text-secondary mb-1">
+              <code>pn</code>=專案名稱、<code>cn</code>=公司名稱、<code>cc</code>=公司聯絡方式、
+              <code>sc</code>=勞務內容、<code>ta</code>=應付總額、<code>ic</code>=所得類別。
+            </p>
+            <button class="btn btn-sm btn-primary mb-2" type="button" @click="copyCombinedUrl">
+              <i class="bi bi-clipboard-check me-1"></i>拷貝勞務資料參數網址
+            </button>
+
+            <div class="qs-box">
+              <p class="mb-2">{{ combinedUrl }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 預覽 PNG -->
+      <section class="step step_preview" v-show="bShowStep==='step_preview'">
+        <div class="mb-2">
+          <button class="btn btn-sm btn-primary me-2" @click="onDownloadPng">
+            <i class="bi bi-image me-1"></i>下載PNG
+          </button>
+          <button class="btn btn-sm btn-success" @click="onDownloadClick">
+            <i class="bi bi-file-earmark-pdf me-1"></i>下載PDF
+          </button>
+        </div>
+
+        <div class="preview-scroll">
+          <img class="png-preview" alt="A4 PNG 預覽" />
+        </div>
+
+        <!-- A4 轉圖來源（隱藏於畫面外） -->
+        <div class="pdf-page">
+          <h3>勞務報酬單</h3>
+          <table class="table_1">
+            <tr>
+              <th style="width:14%;">公司資訊</th>
+              <td style="width:43%;"><strong>公司名稱：</strong><br>{{ project.cn || '—' }}</td>
+              <td style="width:43%;"><strong>公司聯絡方式：</strong><br>{{ project.cc || '—' }}</td>
+            </tr>
+            <tr>
+              <th>受款人<br>基本資料</th>
+              <td>
+                <strong>姓名：</strong>{{ form.recipientName || '—'}}<br>
+                <strong>身分證字號（或居留證/護照）：</strong>{{ form.recipientId || '—' }}
+              </td>
+              <td>
+                <strong>聯絡方式：</strong>{{ form.recipientContact || '—' }}<br>
+                <strong>戶籍地址：</strong>{{ form.recipientAddress || '—' }}<br>
+                <strong>國籍：</strong>{{ form.recipientNationality || '—' }}
+              </td>
+            </tr>
+            <tr>
+              <th>勞務內容</th>
+              <td colspan="2">{{ project.sc || '—' }}</td>
+            </tr>
+            <tr>
+              <th>所得類別</th>
+              <td colspan="2"><strong>申報類別：</strong>{{ form.incomeCategory || '—' }}</td>
+            </tr>
+            <tr>
+              <th>金額</th>
+              <td colspan="2">
+                <div><strong>應付總額：</strong><span class="mono">{{ (project.ta||0).toLocaleString() }}</span>元</div>
+                <div><strong>代扣所得稅：</strong>{{ calc.tax.toLocaleString() }} 元　<span class="text-muted">（達 20,010 元，代扣稅
+                    10%）</span></div>
+                <div><strong>二代健保補充保費：</strong>{{ calc.nhi.toLocaleString() }} 元　<span class="text-muted">（達 20,000
+                    元，代扣率 2.11%）</span></div>
+                <div class="mt-1"><strong>應付淨額：</strong><b class="mono">{{ calc.netAmount.toLocaleString() }}</b>元</div>
+              </td>
+            </tr>
+            <tr>
+              <th>領款人<br>身分證件</th>
+              <td colspan="2">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="id-box">
+                      <div class="waterMark">勞務報酬單使用</div>
+                      <template v-if="form.idFront"><img :src="form.idFront" /></template>
+                      <template v-else><strong>正面</strong></template>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="id-box">
+                      <div class="waterMark">勞務報酬單使用</div>
+                      <template v-if="form.idBack"><img :src="form.idBack" /></template>
+                      <template v-else><strong>反面</strong></template>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>付款方式</th>
+              <td colspan="2">{{ form.paymentMethod || '—' }}</td>
+            </tr>
+            <tr>
+              <th>簽名</th>
+              <td colspan="2">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="mb-1"><strong>領款人</strong></div>
+                    <div class="sign-box">
+                      <template v-if="form.recipientSignature"><img :src="form.recipientSignature" /></template>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="mb-1"><strong>公司代表</strong></div>
+                    <div class="sign-box"><!-- 保留簽名區 --></div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>製表日期</th>
+              <td colspan="2">{{ form.formDate }}</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+    </div>
+    <!-- 內容群組 結束 -->
+
+  </div>
+  <!-- 應用外框 結束 -->
+
+  <!-- 簽名 Modal -->
+  <div class="modal fade" id="signModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">手寫簽名</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body"><canvas id="signPad" class="w-100"
+            style="height:260px;border:1px solid #ced4da;border-radius:.5rem;touch-action:none;"></canvas></div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" onclick="SignPad.clear()">清除</button>
+          <button class="btn btn-primary" onclick="SignPad.save()">使用這個簽名</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // SignPad 簽名板
+    const SignPad = (function () {
+      let modal, targetField = null, canvas, ctx;
+      let drawing = false;
+
+      function ensureModal() {
+        if (modal) return;
+        modal = new bootstrap.Modal(document.getElementById("signModal"));
+        const el = document.getElementById("signModal");
+        el.addEventListener("shown.bs.modal", () => { resize(); });
+      }
+
+      function initCanvas() {
+        canvas = document.getElementById("signPad");
+        ctx = canvas.getContext("2d");
+        bindPointer();
+        resize();
+      }
+
+      function bindPointer() {
+        if (!canvas) return;
+        const getPos = (e) => {
+          const r = canvas.getBoundingClientRect();
+          const x = (e.clientX ?? e.touches?.[0]?.clientX) - r.left;
+          const y = (e.clientY ?? e.touches?.[0]?.clientY) - r.top;
+          return { x, y };
+        };
+
+        canvas.addEventListener("pointerdown", (e) => {
+          canvas.setPointerCapture?.(e.pointerId);
+          drawing = true; ctx.beginPath();
+          const p = getPos(e); ctx.moveTo(p.x, p.y); e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener("pointermove", (e) => {
+          if (!drawing) return;
+          const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault();
+        }, { passive: false });
+
+        const finish = () => { drawing = false; };
+        canvas.addEventListener("pointerup", finish);
+        canvas.addEventListener("pointercancel", finish);
+        canvas.addEventListener("pointerleave", finish);
+
+        // 後備 mouse/touch
+        canvas.addEventListener("mousedown", (e) => {
+          drawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); e.preventDefault();
+        }, { passive: false });
+        window.addEventListener("mousemove", (e) => {
+          if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault();
+        }, { passive: false });
+        window.addEventListener("mouseup", () => { drawing = false; });
+
+        canvas.addEventListener("touchstart", (e) => {
+          drawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); e.preventDefault();
+        }, { passive: false });
+        canvas.addEventListener("touchmove", (e) => {
+          if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault();
+        }, { passive: false });
+        window.addEventListener("touchend", () => { drawing = false; });
+      }
+
+      function resize() {
+        if (!canvas) return;
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        const wrap = canvas.parentElement;
+        const cssW = wrap.clientWidth, cssH = 260;
+        canvas.width = Math.floor(cssW * ratio);
+        canvas.height = Math.floor(cssH * ratio);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(ratio, ratio);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, cssW, cssH);
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#111";
+      }
+
+      function open(field) {
+        ensureModal();
+        if (!canvas) initCanvas();
+        targetField = field;
+        resize();
+        modal.show();
+      }
+
+      function clear() { resize(); }
+      function save() {
+        if (!window.APP || !targetField) return;
+        const data = canvas.toDataURL("image/png");
+        window.APP.form[targetField] = data;
+        modal.hide();
+      }
+
+      return { open, clear, save, resize };
+    })();
+    window.SignPad = SignPad;
+  </script>
+
+  <!-- Vue 模組 -->
+  <script type="module">
+    import { createApp, reactive, ref, computed, onMounted, watch, nextTick } from "https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js";
+
+    const defaultData = {
+      form: {
+        formDate: new Date().toISOString().split("T")[0],
+        recipientName: "", recipientId: "", recipientContact: "", recipientAddress: "", recipientNationality: "臺灣",
+        incomeCategory: "", paymentMethod: "",
+        idFront: null, idBack: null, recipientSignature: null
+      },
+      project: { pn: "", cn: "", cc: "", sc: "", ta: 0, url: "" }
+    };
+
+    const myStorage = reactive({
+      key: "labor_v3",
+      fnRead() {
+        try { return JSON.parse(localStorage.getItem(this.key)) || defaultData; }
+        catch { return defaultData; }
+      },
+      fnSave(payload) {
+        try { localStorage.setItem(this.key, JSON.stringify(payload)); }
+        catch (e) { console.warn("localStorage 寫入失敗", e); }
+      }
+    });
+
+    function ts() {
+      const d = new Date(), p = n => String(n).padStart(2, "0");
+      return `${d.getFullYear()}_${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+    }
+
+    createApp({
+      setup() {
+        const appData = reactive(myStorage.fnRead());
+        const form = appData.form;
+        const project = appData.project;
+
+        const fileIdFront = ref(null), fileIdBack = ref(null);
+        const bShowStep = ref('step_person');
+
+        function applyFromUrlOrMock() {
+          const p = new URLSearchParams(location.search);
+          const hasAny = ["pn", "cn", "cc", "sc", "ta", "ic"].some(k => p.get(k) !== null);
+          if (hasAny) {
+            project.pn = p.get("pn") || "";
+            project.cn = p.get("cn") || "";
+            project.cc = p.get("cc") || "";
+            project.sc = p.get("sc") || "";
+            project.ta = p.get("ta") ? Number(p.get("ta")) : 0;
+            form.incomeCategory = p.get("ic") || "";
+          } else {
+            if (!project.pn && !project.cn) {
+              project.pn = "米蟲希望工程";
+              project.cn = "吃飯股份有限公司";
+              project.cc = "信箱contact@example.com 電話02-1234-5678";
+              project.sc = `打飯班工程發包`;
+              project.ta = 88000;
+            }
+          }
+        }
+
+        const qs = computed(() => {
+          const parts = [], enc = encodeURIComponent;
+          if (project.pn) parts.push("pn=" + enc(project.pn));
+          if (project.cn) parts.push("cn=" + enc(project.cn));
+          if (project.cc) parts.push("cc=" + enc(project.cc));
+          if (project.sc) parts.push("sc=" + enc(project.sc));
+          if (project.ta) parts.push("ta=" + project.ta);
+          if (form.incomeCategory) parts.push("ic=" + enc(form.incomeCategory));
+          return parts.length ? "?" + parts.join("&") : "";
+        });
+        const combinedUrl = computed(() => {
+          const base = (project.url || "").trim();
+          const s = qs.value;
+          if (!base) return location.origin + location.pathname + (s || "");
+          if (!s) return base;
+          return base.includes("?") ? base + "&" + s.slice(1) : base + s;
+        });
+
+        const calc = computed(() => {
+          const total = Number(project.ta) || 0;
+          const tax = total >= 20010 ? Math.round(total * 0.10) : 0;
+          const nhi = total >= 20000 ? Math.round(total * 0.0211) : 0;
+          const netAmount = Math.max(0, total - tax - nhi);
+          return { tax, nhi, netAmount };
+        });
+
+        function onImageChange(field, e) {
+          const f = e.target.files?.[0]; if (!f) return;
+          const r = new FileReader();
+          r.onload = () => { form[field] = r.result; myStorage.fnSave(appData); };
+          r.readAsDataURL(f);
+        }
+        function removeImage(field) { form[field] = null; myStorage.fnSave(appData); }
+        function removeSignature() { form.recipientSignature = null; myStorage.fnSave(appData); }
+        function pick(field) { if (field === 'idFront') fileIdFront.value?.click(); if (field === 'idBack') fileIdBack.value?.click(); }
+        function openSign(target) { window.SignPad.open(target); }
+
+        async function renderPng() {
+          const srcEl = document.querySelector(".pdf-page");
+          if (!window.html2canvas) { alert("缺少 html2canvas"); return; }
+          const canvas = await window.html2canvas(srcEl, { scale: 3, backgroundColor: "#ffffff" });
+          const img = canvas.toDataURL("image/png");
+          const preview = document.querySelector(".png-preview");
+          if (preview) preview.src = img;
+          window.LAST_PNG = img;
+        }
+
+        async function onDownloadClick() {
+          if (!window.jspdf) { alert("缺少 jsPDF"); return; }
+          if (!window.LAST_PNG) await renderPng();
+          const pdf = new window.jspdf.jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+          const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+          const margin = 10, w = pw - margin * 2;
+          const t = new Image(); await new Promise(res => { t.onload = res; t.src = window.LAST_PNG; });
+          const h = Math.min(ph - margin * 2, w * (t.height / t.width));
+          pdf.addImage(window.LAST_PNG, "PNG", margin, margin, w, h, "", "FAST");
+          const who = (form.recipientName || "受款人").replace(/[\\/:*?"<>|]/g, "_");
+          const prj = (project.pn || "專案").replace(/[\\/:*?"<>|]/g, "_");
+          pdf.save(`勞務_${prj}_${who}_${ts()}.pdf`);
+        }
+
+        async function onDownloadPng() {
+          if (!window.LAST_PNG) await renderPng();
+          const who = (form.recipientName || "受款人").replace(/[\\/:*?"<>|]/g, "_");
+          const prj = (project.pn || "專案").replace(/[\\/:*?"<>|]/g, "_");
+          const a = document.createElement("a");
+          a.href = window.LAST_PNG;
+          a.download = `勞務_${prj}_${who}_${ts()}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+
+        // 拷貝網址
+        function copyCombinedUrl() {
+          const url = combinedUrl.value || "";
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "absolute";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          ta.setSelectionRange(0, ta.value.length);
+          const ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          alert(ok ? ("網址已拷貝至剪貼簿。\n" + url) : ("拷貝失敗，請手動複製：\n" + url));
+        }
+
+        watch(bShowStep, async (v) => {
+          if (v === 'step_preview') {
+            await nextTick();
+            renderPng();
+          }
+        });
+
+        function assignDeep(to, from) {
+          Object.keys(from).forEach(k => {
+            if (from[k] && typeof from[k] === "object" && !Array.isArray(from[k])) {
+              if (!to[k] || typeof to[k] !== "object") to[k] = {};
+              assignDeep(to[k], from[k]);
+            } else {
+              to[k] = from[k];
+            }
+          });
+        }
+        function fnJsonOpen() {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".json,application/json";
+          input.onchange = (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              try {
+                const data = JSON.parse(ev.target.result);
+                if (!data || typeof data !== "object") throw new Error("格式錯誤");
+                if (!data.form || !data.project) throw new Error("缺少 form / project");
+                assignDeep(appData.form, data.form);
+                assignDeep(appData.project, data.project);
+                myStorage.fnSave(appData);
+                alert("JSON 載入成功！");
+              } catch (err) {
+                alert("JSON 載入失敗或格式錯誤！");
+              }
+            };
+            reader.readAsText(file);
+          };
+          input.click();
+        }
+        function fnJsonSave() {
+          const filename = `勞務_${(project.pn || "專案")}_${(form.recipientName || "受款人")}_${ts()}.json`
+            .replace(/[\\/:*?"<>|]/g, "_");
+          const jsonStr = JSON.stringify({ form, project }, null, 2);
+          const blob = new Blob([jsonStr], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = filename; a.click();
+          URL.revokeObjectURL(url);
+        }
+
+        onMounted(() => {
+          applyFromUrlOrMock();
+          myStorage.fnSave(appData);
+          window.APP = { form, project, calc, ts };
+          window.addEventListener("resize", () => { if (window.SignPad?.resize) window.SignPad.resize(); });
+        });
+
+        watch(appData, () => myStorage.fnSave(appData), { deep: true });
+
+        return {
+          bShowStep,
+          form, project, calc,
+          qs, combinedUrl, copyCombinedUrl,
+          fileIdFront, fileIdBack,
+          onImageChange, removeImage, removeSignature, pick, openSign,
+          renderPng, onDownloadClick, onDownloadPng,
+          fnJsonOpen, fnJsonSave
+        };
+      }
+    }).mount("#app");
+  </script>
+</body>
+</html>
