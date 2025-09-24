@@ -1,0 +1,39 @@
+@import url(https://fonts.googleapis.com/earlyaccess/notosanstc.css);
+*{font-family:'Noto Sans TC','微軟正黑體';}
+
+@media print {
+	
+
+	.no-print { display: none !important; }
+
+
+	body *{ font-size:12pt; }
+
+	#app h1{ font-size:24pt;}
+
+	#app.container {
+		width: 100% !important;
+		max-width: 100% !important;
+	  }
+
+
+	thead.table-dark th {
+		print-color-adjust: exact;
+		background-color: #000 !important;
+		color: #fff !important;
+	  }
+
+
+	  tfoot.table-secondary th {
+		print-color-adjust: exact;
+		background-color: #ccc !important;
+		color: #000 !important;
+	  }
+
+
+	
+}
+
+
+
+.pointer { cursor: pointer; }

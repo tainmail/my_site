@@ -1,0 +1,47 @@
+{
+  "partyA": {
+    "name": "吳先生",
+    "phone": "0912-345678",
+    "address": "高雄市三民區秋元街 66 巷 1 號",
+    "taxId": "987654321",
+    "email": "wu@example.com",
+    "signatureDate": "2025-08-01"
+  },
+  "partyB": {
+    "name": "統冠工程行",
+    "representative": "劉東原",
+    "phone": "0970-762-271",
+    "address": "嘉義縣朴子市新庄里1鄰新庄1號之5一樓",
+    "taxId": "88954678",
+    "email": "yi.shouy88@gmail.com",
+    "website": "https://tongguan88.com.tw/",
+    "logo": "https://tongguan88.com.tw/images/logo_tongguan.png",
+    "note": "開發票加5%，保固一年現場估價。"
+  },
+  "jobList": [
+    {
+      "id": 1,
+      "name": "前外牆防水工程",
+      "spec": "坪",
+      "quantity": 21.8,
+      "unitPrice": 1200,
+      "note": "含側牆",
+      "taskList": [
+        "矽利康修補裂縫及孔洞",
+        "矽樹脂防水材+甲苯(1:1)面塗"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "女兒牆防水工程",
+      "spec": "坪",
+      "quantity": 15.4,
+      "unitPrice": 1200,
+      "note": "",
+      "taskList": [
+        "矽樹脂防水材+甲苯(1:3)底塗",
+        "矽利康修補裂縫及孔洞"
+      ]
+    }
+  ]
+}
